@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/export/home/lbereska/openpose_gpu/build/python/openpose')
+# sys.path.append('/export/home/lbereska/openpose_gpu/build/python/openpose/openpose.py')
 from openpose import *
 from os import path as osp
 import glob

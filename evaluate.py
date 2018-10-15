@@ -9,9 +9,6 @@ from matplotlib import pyplot as plt
 saved_ = '/export/home/lbereska/saved'
 
 def euklid_norm(v_):
-     """
-     vector: (x, y):sqrt(x^2 + y^2)
-     """
      v_ = np.power(v_, 2)
      v_ = np.sum(v_, axis=1)  # x^2 + y^2
      v_ = np.sqrt(v_)
@@ -19,14 +16,10 @@ def euklid_norm(v_):
      return v_
 
 def calc_pck(v_):
-    # print(v_.shape)
     v_ = np.tile(v_, [1, 40])
     pck_dist = np.arange(40, dtype=np.int32)
-    # print(pck_dist.shape)
     pck_dist = np.expand_dims(pck_dist, axis=0)
-    # print(pck_dist.shape)
     pck_dist = np.tile(pck_dist, [v_.shape[0], 1])
-    # print(pck_dist.shape)
     pck_score = np.where(v_<pck_dist, np.ones_like(pck_dist), np.zeros_like(pck_dist))
     pck_mean_score = np.mean(pck_score, axis=0)
     return pck_mean_score
@@ -82,6 +75,11 @@ kp_dict18 = {
     17: "LEar"}
 
 
+def mkdir(dir_name):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    return dir_name
+
 def save_image(img_path, img_dir):
     img = cv2.imread(img_path)
     img_name = img_path.split('/')[-1]
@@ -91,8 +89,6 @@ def save_image(img_path, img_dir):
     return img
 
 def get_pose_idx(key_):
-    # _, pose1 = split_id(key)
-    # return pose1
     z1, z2 = key_.split('_')
     app_idx = int(z1) - 655000 # 100000
     pose_idx = int(z2) - 1 + app_idx
@@ -139,6 +135,10 @@ def main(args):
     keys2 = dict2.keys()
 
     keys1 = sorted(keys1)
+    if len(keys1) == 14672:
+        print('warning: cutting len of keys1')
+        keys1 = keys1[:12112]
+
 
     a_p_path = '/export/home/dlorenz/PycharmProjects/patrick'
     # pose_list = list(np.load("{}/{}.npy".format(a_p_path, 'pose_list')))
@@ -172,8 +172,9 @@ def main(args):
         kp1 = kp_gen[0][:, 0:2]
         kp2 = kp_gt[0][:, 0:2]
         mask = kp_gt[0][:,2] == 0. # confidence == 0.
-        mask_gen = kp_gen[0][:,2] == 0. # confidence == 0.
-        mask = 1-(1-mask)*(1-mask_gen)
+        if args.mask_gen:
+            mask_gen = kp_gen[0][:,2] == 0. # confidence == 0.
+            mask = 1-(1-mask)*(1-mask_gen)
         mask = np.expand_dims(mask, axis=1)
         mask = np.tile(mask, (1, 2))  # for both x and y
 
@@ -216,9 +217,7 @@ def main(args):
             img_error = np.mean(dist)
             if img_error > fail_thresh:
                 img_id = keys1[i]
-                save_dir = osp.join(saved_, 'fails', args.save_fails)
-                if not os.path.exists(save_dir)
-                    os.makedirs(save_dir)
+                save_dir = mkdir(osp.join(saved_, 'fails', args.save_fails))
                 img_path = osp.join(saved_, img_dir, img_id+'.png')
                 assert osp.exists(img_path)
                 image = save_image(img_path, save_dir)
@@ -237,12 +236,15 @@ def main(args):
     print('mean (over all kp) median {}'.format(np.mean(median, axis=0)))
     print('mean (over all kp) sigma {}'.format(np.mean(sigma, axis=0)))
 
+    if args.save_pck != '':
+        dir_ =  mkdir(osp.join(saved_, 'pck_curves'))
+        save_pck_path = osp.join(dir_, args.save_pck+'.npy')
+        np.save(save_pck_path, mu)
+
     if args.plot:
         print('Plotting ..')
         dist = []
-        save_path = osp.join(saved_, 'hist')
-        if not osp.exists(save_path):
-            os.mkdir(save_path)
+        save_path = mkdir(osp.join(saved_, 'hist'))
         for i in range(args.n_kp):
             dist.append([x[i][0] for x in all_dist])
         for i in range(args.n_kp):
@@ -261,9 +263,10 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true')
     parser.add_argument('--pose_path', type=str)
     parser.add_argument('--save_fails', type=str, default='', help='img dir')
+    parser.add_argument('--save_pck', type=str, default='', help='pck npy name')
     parser.add_argument('--flip', action='store_true')
     parser.add_argument('--pck', action='store_true')
+    parser.add_argument('--mask_gen', action='store_true')
     parser.add_argument('--dict_gen', type=str, default='save_dict1')
     parser.add_argument('--dict_gt', type=str, default='dict_gt')
-
     main(parser.parse_args())
